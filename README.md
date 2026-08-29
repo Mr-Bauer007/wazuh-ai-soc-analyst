@@ -24,7 +24,9 @@ A lightweight, automated Security Operations Center (SOC) agent that streams rea
 │ Cloud GPU/CPU Instance        │ │ Telegram Bot API              │
 │ └── Ollama Server (Llama 3.2) │ │ └── Incident Alert Channel    │
 └───────────────────────────────┘ └───────────────────────────────┘
-Features
+```
+### Features
+
 Real-Time Log Streaming: Connects to the Wazuh Manager via SSH and streams newly written alert entries.
  
 Rule Severity Filtering: Bypasses operational noise by filtering on high-severity thresholds (Rule Level >= 7).
@@ -39,9 +41,9 @@ Automated Dispatch: Formats MITRE ATT&CK mappings and remediation CLI commands f
 
 ## Setup & Installation
 
-1. Clone & configure dependencies
+### 1. Clone & configure dependencies
 
-```xml
+```bash
 git clone https://github.com/yourusername/wazuh-ai-soc-analyst.git
 cd wazuh-ai-soc-analyst
 python3 -m venv venv
@@ -53,7 +55,7 @@ pip install -r requirements.txt
 
 Copy the example file and update the `op://` reference paths to match your 1Password vault.
 
-```xml
+```bash
 cp local.env.example local.env
 # Edit local.env and replace placeholders with your op:// secrets
 ```
@@ -62,7 +64,7 @@ cp local.env.example local.env
 
 Forward local port `11434` to your remote cloud instance (replace placeholders):
 
-```xml
+```bash
 ssh -f -N -L 11434:localhost:11434 <remote-user>@<remote-ip>
 ```
 
@@ -70,7 +72,7 @@ ssh -f -N -L 11434:localhost:11434 <remote-user>@<remote-ip>
 
 Execute the agent using the 1Password CLI wrapper to inject secrets into process memory:
 
-```xml
+```bash
 op run --env-file=local.env -- python src/agent.py
 ```
 
