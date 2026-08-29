@@ -37,27 +37,43 @@ Zero-Plaintext Secret Storage: Injects all credentials directly into process mem
 
 Automated Dispatch: Formats MITRE ATT&CK mappings and remediation CLI commands for instant delivery to Telegram.
 
-Setup & Installation
-1. Clone & Configure Dependencies
-Bash
-git clone wazuh-ai-soc-analyst.git
+## Setup & Installation
+
+1. Clone & configure dependencies
+
+```xml
+git clone https://github.com/yourusername/wazuh-ai-soc-analyst.git
 cd wazuh-ai-soc-analyst
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-2. Configure 1Password & Environment Variables
-Copy the example file and update the op:// reference paths to match your 1Password vault:
+```
 
-Bash
+2. Configure 1Password & environment variables
+
+Copy the example file and update the `op://` reference paths to match your 1Password vault.
+
+```xml
 cp local.env.example local.env
-3. Establish the Ollama Inference Tunnel
-Forward local port 11434 to your remote cloud instance:
+# Edit local.env and replace placeholders with your op:// secrets
+```
 
-Bash
+3. Establish the Ollama inference tunnel
+
+Forward local port `11434` to your remote cloud instance (replace placeholders):
+
+```xml
 ssh -f -N -L 11434:localhost:11434 <remote-user>@<remote-ip>
-4. Run the Agent
-Execute the agent using the 1Password CLI wrapper to populate secrets into memory:
+```
 
-Bash
+4. Run the agent
+
+Execute the agent using the 1Password CLI wrapper to inject secrets into process memory:
+
+```xml
 op run --env-file=local.env -- python src/agent.py
+```
+
+Notes:
+- Replace `yourusername`, `<remote-user>`, and `<remote-ip>` with your repository and host details.
 
