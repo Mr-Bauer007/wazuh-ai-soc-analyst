@@ -1,0 +1,67 @@
+<!-- /var/ossec/etc/rules/local_rules.xml -->
+
+<group name="local,syslog,sshd,custom_bruteforce,">
+
+  <!-- 1. Demote individual SSH failed passwords to Level 3 (keeps events indexed without alert spam) -->
+  <rule id="100002" level="3" overwrite="yes">
+    <if_sid>5710</if_sid>
+    <description>SSH: Authentication failed (valid user)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+  </rule>
+
+  <!-- 2. Demote individual SSH invalid user attempts to Level 3 -->
+  <rule id="100003" level="3" overwrite="yes">
+    <if_sid>5716</if_sid>
+    <description>SSH: Authentication failed (invalid user)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+  </rule>
+
+  <!-- 3. Trigger High alert and Active Response after 5 failed attempts within 120s -->
+  <rule id="100004" level="10" frequency="5" timeframe="120">
+    <if_matched_sid>5710, 5716, 100002, 100003</if_matched_sid>
+    <same_source_ip />
+    <description>SSH brute-force attack: 5 failed logins within 120s from $(srcip)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+  
+  <!-- 4. Suppress routine dpkg package installation noise -->
+  <rule id="100010" level="0" overwrite="yes">
+    <if_sid>2902</if_sid>
+    <description>Ignore dpkg package installation noise</description>
+  </rule>
+
+  <!-- 5. Suppress rootcheck false positives specifically for the diff utility -->
+  <rule id="100011" level="0">
+    <if_sid>510</if_sid>
+    <match>/bin/diff|/usr/bin/diff</match>
+    <description>Ignore rootcheck false positive for diff tool</description>
+  </rule>
+
+  <!-- 6. Silence routine Agent/Manager startup and initialization noise -->
+  <rule id="100012" level="0" overwrite="yes">
+    <if_sid>501, 502, 503</if_sid>
+    <description>Silence routine Wazuh agent and manager startup logs</description>
+  </rule>
+
+  <!-- 7. Retain and escalate alerts when an Agent disconnects/drops offline -->
+  <rule id="100014" level="7" overwrite="yes">
+    <if_sid>504</if_sid>
+    <description>Wazuh agent disconnected from manager</description>
+    <mitre>
+      <id>T1562.001</id>
+    </mitre>
+  </rule>
+
+  <!-- 8. Silence vulnerability detector raw event dumps to alerts stream -->
+  <rule id="100013" level="0">
+    <if_group>vulnerability-detector</if_group>
+    <description>Silence vulnerability detector events from alert stream</description>
+  </rule>
+
+</group>

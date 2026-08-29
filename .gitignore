@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Project Database & State
+processed_alerts.db
+*.log
+
+# Environment & 1Password references
+local.env
+.env
+*.env
+
+# OS / Editor files
+.DS_Store
+.vscode/
+.idea/
