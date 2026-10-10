@@ -1,22 +1,99 @@
-name: Feature Request & Security Triage
-description: Propose a backlog item with initial security triage
-title: "[Feature]: "
-labels:
-  - triage
-body:
-  - type: markdown
-    attributes:
-      value: |
-        ### Initial Security Triage
-        Please answer the triage checklist below accurately.
+name: Security Triage Automation
 
-  - type: checkboxes
-    id: security_triage
-    attributes:
-      label: Security Assessment Questions
-      description: Check each statement that applies.
-      options:
-        - label: Does this feature avoid storing, transmitting, or processing sensitive/PII data?
-        - label: Does this feature avoid introducing new third-party services, APIs, or public endpoints?
-        - label: Does this change avoid altering authentication, authorization, or RBAC controls?
-        - label: Does this change avoid running user-supplied code or unvalidated raw input?
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate triage and inject mitigation template
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+            const sectionHeader = '### Security Assessment Questions';
+            const templateMarker = '<!-- threat-model-template -->';
+            const labelName = 'security-sensitive';
+
+            // Verify this issue came from the triage form
+            if (!body.includes(sectionHeader)) {
+              return;
+            }
+
+            // Extract only the triage section
+            const triageSection = body.split(sectionHeader)[1].split('###')[0];
+            const hasUncheckedAnswers = /- [ ]/.test(triageSection);
+
+            const currentLabels = issue.labels.map(l => typeof l === 'string' ? l : l.name);
+            const hasLabel = currentLabels.includes(labelName);
+
+            // Handle remediation (user resolved all security questions upon editing)
+            if (!hasUncheckedAnswers) {
+              if (hasLabel) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    name: labelName
+                  });
+                } catch (e) {
+                  if (e.status !== 404) throw e;
+                }
+              }
+              return;
+            }
+
+            // 1. Ensure label exists in the repository
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: labelName
+              });
+            } catch (err) {
+              if (err.status === 404) {
+                try {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: labelName,
+                    color: 'b60205',
+                    description: 'Requires threat modeling and risk mitigation review'
+                  });
+                } catch (e) {
+                  if (e.status !== 422) throw e;
+                }
+              } else {
+                throw err;
+              }
+            }
+
+            // 2. Add label to issue
+            if (!hasLabel) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: [labelName]
+              });
+            }
+
+            // 3. Inject Threat Modeling & Risk Mitigation template directly into the issue body
+            if (!body.includes(templateMarker)) {
+              const mitigationTemplate = `\n\n---\n${templateMarker}\n## 🛡️ Threat Model & Risk Mitigation Required\n\n> **Notice:** One or more security triage criteria were flagged. Complete the section below before submitting the PR.\n\n### 1. Threat Identification (STRIDE)\n- **Spoofing / Tampering:** \n- **Information Disclosure:** \n- **Elevation of Privilege / Denial of Service:** \n\n### 2. Risk Mitigation & Controls\n- [ ] Data validation and sanitization defined\n- [ ] Authentication / authorization boundary confirmed\n- [ ] Secrets and credential handling audited\n\n### 3. Risk Acceptance / Approvals\n- **AppSec Reviewer:** Pending\n- **Mitigation Status:** [ ] Accepted | [ ] Mitigated\n`;
+
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: body + mitigationTemplate
+              });
+            }
