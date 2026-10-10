@@ -1,0 +1,75 @@
+name: Security Triage Automation
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate security triage answers
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.issue.body || '';
+            const isFeatureRequest = body.includes('### Initial Security Triage');
+            const hasUncheckedAnswers = /- \[ \]/.test(body);
+
+            if (!isFeatureRequest || !hasUncheckedAnswers) {
+              return;
+            }
+
+            const issue = context.payload.issue;
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'security-sensitive'
+              });
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'security-sensitive',
+                color: 'b60205',
+                description: 'Requires threat modeling and AppSec review'
+              });
+            }
+
+            const labels = issue.labels.map((label) =>
+              typeof label === 'string' ? label : label.name
+            );
+
+            if (!labels.includes('security-sensitive')) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: ['security-sensitive']
+              });
+            }
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              per_page: 100
+            });
+            const marker = '<!-- security-triage-notice -->';
+
+            if (!comments.some((comment) => comment.body?.includes(marker))) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `${marker}\n**This issue has been marked as \`security-sensitive\`.**\n\nWhen opening a pull request resolving this issue, complete the Threat Modeling and Risk Mitigation section in the PR description. The AppSec review gate must pass before merge.`
+              });
+            }
