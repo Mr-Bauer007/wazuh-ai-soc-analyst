@@ -79,3 +79,16 @@ op run --env-file=local.env -- python src/agent.py
 Notes:
 - Replace `yourusername`, `<remote-user>`, and `<remote-ip>` with your repository and host details.
 
+## GitHub Security Triage
+
+Feature issues use the GitHub Issue Form in `.github/ISSUE_TEMPLATE/feature_request.yml`.
+If any security-safe answer is left unchecked, the security triage workflow applies the
+`security-sensitive` label and adds the required PR guidance. Pull requests linked with
+closing keywords such as `Fixes #123` are blocked until both Security Review checkboxes
+are complete.
+
+To enable the AppSec review request, create the repository variable `APPSEC_TEAM_SLUG`
+with the slug of the GitHub team that owns application security reviews. The workflow
+requires that team to approve a sensitive pull request before merge; configure the
+branch protection rule to require the `Security Review Gate` status check.
+

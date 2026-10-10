@@ -37,3 +37,20 @@ jobs:
         with:
           command: code test
           args: --severity-threshold=high
+
+      # Tests dependencies and breaks CI if high-severity vulns are found
+      - name: Run Snyk Open Source test
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      # Uploads the dependency snapshot to Snyk Web Dashboard
+      - name: Send Open Source snapshot to Snyk Dashboard
+        if: github.ref == 'refs/heads/main'
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: monitor

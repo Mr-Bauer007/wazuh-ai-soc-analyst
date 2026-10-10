@@ -1,0 +1,22 @@
+name: Feature Request & Security Triage
+description: Propose a backlog item with initial security triage
+title: "[Feature]: "
+labels:
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Initial Security Triage
+        Please answer the triage checklist below accurately.
+
+  - type: checkboxes
+    id: security_triage
+    attributes:
+      label: Security Assessment Questions
+      description: Check each statement that applies.
+      options:
+        - label: Does this feature avoid storing, transmitting, or processing sensitive/PII data?
+        - label: Does this feature avoid introducing new third-party services, APIs, or public endpoints?
+        - label: Does this change avoid altering authentication, authorization, or RBAC controls?
+        - label: Does this change avoid running user-supplied code or unvalidated raw input?
