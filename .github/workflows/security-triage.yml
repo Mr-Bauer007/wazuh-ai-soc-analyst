@@ -12,64 +12,82 @@ jobs:
   triage:
     runs-on: ubuntu-latest
     steps:
-      - name: Evaluate security triage answers
+      - name: Evaluate triage and inject mitigation template
         uses: actions/github-script@v7
         with:
           script: |
-            const body = context.payload.issue.body || '';
-            const isFeatureRequest = body.includes('### Initial Security Triage');
-            const hasUncheckedAnswers = /- \[ \]/.test(body);
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+            const sectionHeader = '### Security Assessment Questions';
+            const templateMarker = '<!-- threat-model-template -->';
+            const labelName = 'security-sensitive';
 
-            if (!isFeatureRequest || !hasUncheckedAnswers) {
+            if (!body.includes(sectionHeader)) {
               return;
             }
 
-            const issue = context.payload.issue;
+            const triageSection = body.split(sectionHeader)[1].split('###')[0];
+            const hasUncheckedAnswers = /- [ ]/.test(triageSection);
+
+            const currentLabels = issue.labels.map(l => typeof l === 'string' ? l : l.name);
+            const hasLabel = currentLabels.includes(labelName);
+
+            if (!hasUncheckedAnswers) {
+              if (hasLabel) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    name: labelName
+                  });
+                } catch (e) {
+                  if (e.status !== 404) throw e;
+                }
+              }
+              return;
+            }
+
             try {
               await github.rest.issues.getLabel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                name: 'security-sensitive'
+                name: labelName
               });
-            } catch (error) {
-              if (error.status !== 404) {
-                throw error;
+            } catch (err) {
+              if (err.status === 404) {
+                try {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: labelName,
+                    color: 'b60205',
+                    description: 'Requires threat modeling and risk mitigation review'
+                  });
+                } catch (e) {
+                  if (e.status !== 422) throw e;
+                }
+              } else {
+                throw err;
               }
-              await github.rest.issues.createLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'security-sensitive',
-                color: 'b60205',
-                description: 'Requires threat modeling and AppSec review'
-              });
             }
 
-            const labels = issue.labels.map((label) =>
-              typeof label === 'string' ? label : label.name
-            );
-
-            if (!labels.includes('security-sensitive')) {
+            if (!hasLabel) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
-                labels: ['security-sensitive']
+                labels: [labelName]
               });
             }
 
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.number,
-              per_page: 100
-            });
-            const marker = '<!-- security-triage-notice -->';
+            if (!body.includes(templateMarker)) {
+              const mitigationTemplate = `\n\n---\n${templateMarker}\n## 🛡️ Threat Model & Risk Mitigation Required\n\n> **Notice:** One or more security triage criteria were flagged. Complete the section below before submitting the PR.\n\n### 1. Threat Identification (STRIDE)\n- **Spoofing / Tampering:** \n- **Information Disclosure:** \n- **Elevation of Privilege / Denial of Service:** \n\n### 2. Risk Mitigation & Controls\n- [ ] Data validation and sanitization defined\n- [ ] Authentication / authorization boundary confirmed\n- [ ] Secrets and credential handling audited\n\n### 3. Risk Acceptance / Approvals\n- **AppSec Reviewer:** Pending\n- **Mitigation Status:** [ ] Accepted | [ ] Mitigated\n`;
 
-            if (!comments.some((comment) => comment.body?.includes(marker))) {
-              await github.rest.issues.createComment({
+              await github.rest.issues.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
-                body: `${marker}\n**This issue has been marked as \`security-sensitive\`.**\n\nWhen opening a pull request resolving this issue, complete the Threat Modeling and Risk Mitigation section in the PR description. The AppSec review gate must pass before merge.`
+                body: body + mitigationTemplate
               });
             }
